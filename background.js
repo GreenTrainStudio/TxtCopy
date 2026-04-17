@@ -6,24 +6,49 @@ chrome.commands.onCommand.addListener(async (command) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
 
-  const [{ result: selectedText } = {}] = await chrome.scripting.executeScript({
+  const [{ result } = {}] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
-    func: () => window.getSelection()?.toString() || ''
+    func: async () => {
+      const active = document.activeElement;
+      const isFileInput =
+        active instanceof HTMLInputElement &&
+        active.type === 'file' &&
+        !active.disabled &&
+        !active.readOnly;
+
+      if (!isFileInput) {
+        return { ok: false, reason: 'no_file_input_focused' };
+      }
+
+      let clipboardText = '';
+      try {
+        clipboardText = await navigator.clipboard.readText();
+      } catch {
+        return { ok: false, reason: 'clipboard_unavailable' };
+      }
+
+      const text = clipboardText.trim();
+      if (!text) {
+        return { ok: false, reason: 'clipboard_empty' };
+      }
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const file = new File([text], `clipboard-${timestamp}.txt`, {
+        type: 'text/plain'
+      });
+
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(file);
+      active.files = dataTransfer.files;
+
+      active.dispatchEvent(new Event('input', { bubbles: true }));
+      active.dispatchEvent(new Event('change', { bubbles: true }));
+
+      return { ok: true, filename: file.name };
+    }
   });
 
-  const text = (selectedText || '').trim();
-  if (!text) {
-    console.warn('Не найден выделенный текст для сохранения.');
-    return;
+  if (!result?.ok) {
+    console.warn('Не удалось вставить TXT-файл в поле загрузки:', result?.reason || 'unknown');
   }
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `selected-text-${timestamp}.txt`;
-  const url = `data:text/plain;charset=utf-8,${encodeURIComponent(text)}`;
-
-  await chrome.downloads.download({
-    url,
-    filename,
-    saveAs: true
-  });
 });
