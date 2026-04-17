@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Selected Text to TXT",
+  "description": "Сохраняет выделенный на странице текст в TXT-файл по горячей клавише.",
+  "version": "1.0.0",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "downloads"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "save-selection-as-txt": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Сохранить выделенный текст как TXT"
+    }
+  }
+}
